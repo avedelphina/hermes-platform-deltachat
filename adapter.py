@@ -91,6 +91,20 @@ def _parse_email_list(raw: str) -> set[str]:
     return {e.strip().lower() for e in raw.split(",") if e.strip()}
 
 
+def _parse_chatmail_servers(raw: str) -> list[str]:
+    """Return a list of non-empty, trimmed chatmail server hostnames."""
+    servers = [s.strip() for s in raw.split(",") if s.strip()]
+    # Remove duplicate hostnames while preserving order.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for s in servers:
+        key = s.lower()
+        if key not in seen:
+            seen.add(key)
+            unique.append(s)
+    return unique
+
+
 def _safe_data_dir(path: str, create: bool = False) -> Path:
     """Resolve and optionally create the Delta Chat data directory."""
     p = Path(path).expanduser()
@@ -151,6 +165,21 @@ def check_requirements() -> bool:
         return False
     binary = os.getenv("DELTACHAT_RPC_SERVER", "deltachat-rpc-server")
     return shutil.which(binary) is not None
+
+
+# Cache the resolved RPC server path so `check_requirements` and the adapter agree.
+_RPC_SERVER_PATH: Optional[str] = None
+
+
+def _resolve_rpc_server_path(path: str) -> str:
+    global _RPC_SERVER_PATH
+    if _RPC_SERVER_PATH:
+        return _RPC_SERVER_PATH
+    resolved = shutil.which(path)
+    if resolved:
+        _RPC_SERVER_PATH = resolved
+        return resolved
+    raise ValueError(f"deltachat-rpc-server not found on PATH: {path!r}")
 
 
 def _get_chat(account, chat_id: str):
@@ -277,9 +306,13 @@ class DeltaChatAdapter(BasePlatformAdapter):
         self._password = g("DELTACHAT_PASSWORD", "password")
         self._data_dir = g("DELTACHAT_DATA_DIR", "data_dir", "~/.hermes/deltachat-data")
         self._rpc_server = g("DELTACHAT_RPC_SERVER", "rpc_server", "deltachat-rpc-server")
-        self._chatmail_server = g(
-            "DELTACHAT_CHATMAIL_SERVER", "chatmail_server", "nine.testrun.org"
-        )
+        raw_chatmail_servers = g("DELTACHAT_CHATMAIL_SERVERS", "chatmail_servers")
+        if raw_chatmail_servers:
+            self._chatmail_servers: list[str] = _parse_chatmail_servers(raw_chatmail_servers)
+        else:
+            self._chatmail_servers: list[str] = [
+                g("DELTACHAT_CHATMAIL_SERVER", "chatmail_server", "nine.testrun.org")
+            ]
         self._display_name = g("DELTACHAT_DISPLAY_NAME", "display_name", "Hermes")
         self._avatar_path = _validate_avatar_path(
             g("DELTACHAT_AVATAR_PATH", "avatar_path") or None, strict=False
@@ -663,14 +696,26 @@ class DeltaChatAdapter(BasePlatformAdapter):
             account.add_or_update_transport({"addr": self._email, "password": self._password})
             rpc.configure(account.id)
         else:
-            logger.info("DeltaChat: creating chatmail account on %s", self._chatmail_server)
-            rpc.set_config_from_qr(account.id, f"DCACCOUNT:https://{self._chatmail_server}/new")
-            account.update_config(bot="1", show_emails="2", displayname=self._display_name)
-            if self._avatar_path:
-                avatar_path = _validate_avatar_path(self._avatar_path, strict=True)
-                account.set_avatar(avatar_path)
-            rpc.configure(account.id)
-        logger.info("DeltaChat: account ready: %s", account.get_config("addr"))
+            self._create_chatmail_account(rpc, account)
+
+    def _create_chatmail_account(self, rpc, account) -> None:
+        """Create a chatmail account, trying configured servers in order."""
+        last_error: Optional[Exception] = None
+        for server in self._chatmail_servers:
+            logger.info("DeltaChat: trying chatmail server %s", server)
+            try:
+                rpc.set_config_from_qr(account.id, f"DCACCOUNT:https://{server}/new")
+                account.update_config(bot="1", show_emails="2", displayname=self._display_name)
+                if self._avatar_path:
+                    avatar_path = _validate_avatar_path(self._avatar_path, strict=True)
+                    account.set_avatar(avatar_path)
+                rpc.configure(account.id)
+                logger.info("DeltaChat: account ready: %s", account.get_config("addr"))
+                return
+            except Exception as e:
+                last_error = e
+                logger.warning("DeltaChat: chatmail server %s failed: %s", server, e)
+        raise last_error or Exception("All configured chatmail servers failed")
 
     # --- Inbound message handler (runs in asyncio loop) ---
 
@@ -852,10 +897,13 @@ def _env_enablement():
     email = os.getenv("DELTACHAT_EMAIL")
     if not email:
         return None
+    chatmail_servers = os.getenv("DELTACHAT_CHATMAIL_SERVERS")
+    if not chatmail_servers:
+        chatmail_servers = os.getenv("DELTACHAT_CHATMAIL_SERVER", "nine.testrun.org")
     return {
         "email": email,
         "data_dir": os.getenv("DELTACHAT_DATA_DIR", "~/.hermes/deltachat-data"),
-        "chatmail_server": os.getenv("DELTACHAT_CHATMAIL_SERVER", "nine.testrun.org"),
+        "chatmail_servers": chatmail_servers,
         "display_name": os.getenv("DELTACHAT_DISPLAY_NAME", "Hermes"),
     }
 
@@ -889,6 +937,12 @@ def validate_config(config) -> None:
     rpc_server = os.getenv("DELTACHAT_RPC_SERVER") or extra.get("rpc_server", "deltachat-rpc-server")
     if rpc_server != "deltachat-rpc-server":
         _validate_rpc_server_path(rpc_server, strict=True)
+
+    chatmail_servers = os.getenv("DELTACHAT_CHATMAIL_SERVERS") or extra.get("chatmail_servers")
+    if chatmail_servers:
+        servers = _parse_chatmail_servers(chatmail_servers)
+        if not servers:
+            raise ValueError(f"Invalid DELTACHAT_CHATMAIL_SERVERS: {chatmail_servers!r}")
 
 
 def is_connected(config) -> bool:

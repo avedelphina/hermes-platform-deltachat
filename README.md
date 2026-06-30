@@ -7,7 +7,8 @@ your agent send and receive messages over [Delta Chat](https://delta.chat/) —
 an email-based, end-to-end encrypted messenger.
 
 The adapter can run with a user-supplied email account or create a free
-"chatmail" account automatically.
+"chatmail" account automatically. You can configure a single chatmail server or
+provide a fallback list of servers to try during onboarding.
 
 ---
 
@@ -71,7 +72,12 @@ export DELTACHAT_DISPLAY_NAME="My Bot"
 ```
 
 The adapter will create a free account on `nine.testrun.org` by default. You can
-override the chatmail server with `DELTACHAT_CHATMAIL_SERVER`.
+override the chatmail server with `DELTACHAT_CHATMAIL_SERVER`, or provide a list
+of fallback servers with `DELTACHAT_CHATMAIL_SERVERS`:
+
+```bash
+export DELTACHAT_CHATMAIL_SERVERS="chat.postblue.cz,chat.cqre.net"
+```
 
 ### Option B: Manual email account
 

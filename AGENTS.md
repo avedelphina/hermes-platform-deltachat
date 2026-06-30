@@ -185,6 +185,7 @@ Configuration is read from environment variables first, then from the Hermes
 | `DELTACHAT_DATA_DIR` | `~/.hermes/deltachat-data` | Account database directory. |
 | `DELTACHAT_RPC_SERVER` | `deltachat-rpc-server` | Path to the RPC server binary. |
 | `DELTACHAT_CHATMAIL_SERVER` | `nine.testrun.org` | Chatmail server for auto accounts. |
+| `DELTACHAT_CHATMAIL_SERVERS` | — | Comma-separated list of chatmail servers to try in order. Overrides the single-server setting. |
 | `DELTACHAT_DISPLAY_NAME` | `Hermes` | Bot display name. |
 | `DELTACHAT_AVATAR_PATH` | — | Path to bot avatar image (PNG/JPEG/GIF/WebP). |
 | `DELTACHAT_ALLOWED_USERS` | — | Comma-separated allowlist for all interactions. |

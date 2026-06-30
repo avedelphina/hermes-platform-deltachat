@@ -27,6 +27,7 @@ prefix can be used in `PlatformConfig.extra` (e.g. `email`, `password`,
 | `DELTACHAT_DATA_DIR` | `~/.hermes/deltachat-data` | Directory for Delta Chat account keys and state. Created with mode `0o700`. |
 | `DELTACHAT_RPC_SERVER` | `deltachat-rpc-server` | Path or name of the `deltachat-rpc-server` binary. Custom paths are validated to exist and be executable. |
 | `DELTACHAT_CHATMAIL_SERVER` | `nine.testrun.org` | Chatmail server used when `DELTACHAT_EMAIL=auto`. |
+| `DELTACHAT_CHATMAIL_SERVERS` | — | Comma-separated list of chatmail servers to try in order when creating an auto account. Overrides `DELTACHAT_CHATMAIL_SERVER` if set. |
 | `DELTACHAT_DISPLAY_NAME` | `Hermes` | Display name shown to contacts. |
 | `DELTACHAT_AVATAR_PATH` | — | Path to a bot avatar image (`.png`, `.jpg`, `.jpeg`, `.gif`, or `.webp`). |
 
@@ -84,6 +85,7 @@ prefix can be used in `PlatformConfig.extra` (e.g. `email`, `password`,
 
 ```bash
 export DELTACHAT_EMAIL=auto
+export DELTACHAT_CHATMAIL_SERVERS="chat.postblue.cz,chat.cqre.net"
 export DELTACHAT_DISPLAY_NAME="Help Desk Bot"
 export DELTACHAT_DM_POLICY=open
 export DELTACHAT_GROUP_POLICY=open
@@ -126,5 +128,6 @@ export DELTACHAT_RATE_LIMIT_MAX=1000
 - `DELTACHAT_DATA_DIR` does not contain `..`.
 - `DELTACHAT_AVATAR_PATH` has a supported image extension.
 - A non-default `DELTACHAT_RPC_SERVER` path points to an executable file.
+- `DELTACHAT_CHATMAIL_SERVERS` (if set) contains at least one valid hostname.
 
 Full file-system and binary validation happens at runtime in `_run_dc_once()`.

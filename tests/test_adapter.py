@@ -126,6 +126,29 @@ class TestParseEmailList(unittest.TestCase):
         self.assertEqual(adapter._parse_email_list("alice@example.com"), {"alice@example.com"})
 
 
+class TestParseChatmailServers(unittest.TestCase):
+    def test_basic(self):
+        self.assertEqual(
+            adapter._parse_chatmail_servers("a.com, b.com, a.com"),
+            ["a.com", "b.com"],
+        )
+
+    def test_empty(self):
+        self.assertEqual(adapter._parse_chatmail_servers(""), [])
+
+    def test_whitespace_trimmed(self):
+        self.assertEqual(
+            adapter._parse_chatmail_servers(" a.com , b.com "),
+            ["a.com", "b.com"],
+        )
+
+    def test_case_preserved(self):
+        self.assertEqual(
+            adapter._parse_chatmail_servers("A.com, a.com"),
+            ["A.com"],
+        )
+
+
 class TestSafeDataDir(unittest.TestCase):
     def test_rejects_dotdot(self):
         with self.assertRaises(ValueError):
@@ -253,6 +276,22 @@ class TestDeltaChatAdapter(unittest.TestCase):
         self.assertTrue(a._send_rejection_replies)
         self.assertEqual(a._max_message_len, adapter.DC_MESSAGE_MAX_LEN)
         self.assertEqual(a._rate_limiter.max_calls, 30)
+        self.assertEqual(a._chatmail_servers, ["nine.testrun.org"])
+
+    def test_multiple_chatmail_servers(self):
+        a = self._make(
+            {"DELTACHAT_CHATMAIL_SERVERS": "chat.postblue.cz, chat.cqre.net"}
+        )
+        self.assertEqual(a._chatmail_servers, ["chat.postblue.cz", "chat.cqre.net"])
+
+    def test_chatmail_servers_override_single(self):
+        a = self._make(
+            {
+                "DELTACHAT_CHATMAIL_SERVER": "old.example.com",
+                "DELTACHAT_CHATMAIL_SERVERS": "chat.postblue.cz",
+            }
+        )
+        self.assertEqual(a._chatmail_servers, ["chat.postblue.cz"])
 
     def test_env_overrides(self):
         a = self._make(
@@ -417,6 +456,21 @@ class TestValidateConfig(unittest.TestCase):
                 adapter.validate_config(_FakeConfig())
         finally:
             os.environ.pop("DELTACHAT_RPC_SERVER", None)
+
+    def test_accepts_chatmail_servers(self):
+        os.environ["DELTACHAT_CHATMAIL_SERVERS"] = "chat.postblue.cz,chat.cqre.net"
+        try:
+            adapter.validate_config(_FakeConfig())  # no exception
+        finally:
+            os.environ.pop("DELTACHAT_CHATMAIL_SERVERS", None)
+
+    def test_rejects_empty_chatmail_servers(self):
+        os.environ["DELTACHAT_CHATMAIL_SERVERS"] = " , , "
+        try:
+            with self.assertRaises(ValueError):
+                adapter.validate_config(_FakeConfig())
+        finally:
+            os.environ.pop("DELTACHAT_CHATMAIL_SERVERS", None)
 
 
 class TestCheckRequirements(unittest.TestCase):

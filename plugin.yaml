@@ -28,6 +28,10 @@ optional_env:
     description: "Chatmail server for auto accounts (default: nine.testrun.org)"
     prompt: "Chatmail server"
     password: false
+  - name: DELTACHAT_CHATMAIL_SERVERS
+    description: "Comma-separated chatmail servers to try in order (overrides DELTACHAT_CHATMAIL_SERVER)"
+    prompt: "Chatmail servers (comma-separated)"
+    password: false
   - name: DELTACHAT_DISPLAY_NAME
     description: "Bot display name shown to contacts (default: Hermes)"
     prompt: "Bot display name"
