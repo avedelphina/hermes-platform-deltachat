@@ -105,6 +105,18 @@ def _parse_chatmail_servers(raw: str) -> list[str]:
     return unique
 
 
+def _cfg(config, env: str, key: str, default: str = "") -> str:
+    """Read platform config: env var takes precedence over config.extra."""
+    extra = getattr(config, "extra", {}) or {}
+    val = os.getenv(env)
+    if val:
+        return val
+    val = extra.get(key, default)
+    if isinstance(val, bool):
+        val = "true" if val else "false"
+    return val if val is not None else default
+
+
 def _safe_data_dir(path: str, create: bool = False) -> Path:
     """Resolve and optionally create the Delta Chat data directory."""
     p = Path(path).expanduser()
@@ -300,7 +312,15 @@ class DeltaChatAdapter(BasePlatformAdapter):
         super().__init__(config=config, platform=Platform("deltachat"))
 
         extra = getattr(config, "extra", {}) or {}
-        g = lambda env, key, default="": os.getenv(env) or extra.get(key, default)
+
+        def g(env, key, default=""):
+            val = os.getenv(env)
+            if val:
+                return val
+            val = extra.get(key, default)
+            if isinstance(val, bool):
+                val = "true" if val else "false"
+            return val
 
         self._email = g("DELTACHAT_EMAIL", "email", "auto")
         self._password = g("DELTACHAT_PASSWORD", "password")
@@ -663,7 +683,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
             if not account.is_configured():
                 self._configure_account(rpc, account)
             else:
-                account.update_config(bot="1", show_emails="2", displayname=self._display_name)
+                account.update_config(bot="1", displayname=self._display_name)
                 if self._avatar_path:
                     avatar_path = _validate_avatar_path(self._avatar_path, strict=True)
                     account.set_avatar(avatar_path)
@@ -689,7 +709,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
     def _configure_account(self, rpc, account) -> None:
         if self._email and self._email != "auto" and self._password:
             logger.info("DeltaChat: configuring with %s", self._email)
-            account.update_config(bot="1", show_emails="2", displayname=self._display_name)
+            account.update_config(bot="1", displayname=self._display_name)
             if self._avatar_path:
                 avatar_path = _validate_avatar_path(self._avatar_path, strict=True)
                 account.set_avatar(avatar_path)
@@ -705,7 +725,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
             logger.info("DeltaChat: trying chatmail server %s", server)
             try:
                 rpc.set_config_from_qr(account.id, f"DCACCOUNT:https://{server}/new")
-                account.update_config(bot="1", show_emails="2", displayname=self._display_name)
+                account.update_config(bot="1", displayname=self._display_name)
                 if self._avatar_path:
                     avatar_path = _validate_avatar_path(self._avatar_path, strict=True)
                     account.set_avatar(avatar_path)
@@ -909,36 +929,35 @@ def _env_enablement():
 
 
 def validate_config(config) -> None:
-    extra = getattr(config, "extra", {}) or {}
-    email = os.getenv("DELTACHAT_EMAIL") or extra.get("email", "auto")
-    password = os.getenv("DELTACHAT_PASSWORD") or extra.get("password")
+    email = _cfg(config, "DELTACHAT_EMAIL", "email", "auto")
+    password = _cfg(config, "DELTACHAT_PASSWORD", "password")
 
     if email and email != "auto" and not _is_valid_email(email):
         raise ValueError(f"DELTACHAT_EMAIL is not a valid email address: {email!r}")
     if email and email != "auto" and not password:
         raise ValueError("DELTACHAT_PASSWORD required when DELTACHAT_EMAIL is set (not 'auto')")
 
-    dm_policy = os.getenv("DELTACHAT_DM_POLICY") or extra.get("dm_policy", "pairing")
+    dm_policy = _cfg(config, "DELTACHAT_DM_POLICY", "dm_policy", "pairing")
     if dm_policy not in ("open", "allowlist", "pairing", "disabled"):
         raise ValueError(f"Invalid DELTACHAT_DM_POLICY: {dm_policy!r}")
 
-    group_policy = os.getenv("DELTACHAT_GROUP_POLICY") or extra.get("group_policy", "open")
+    group_policy = _cfg(config, "DELTACHAT_GROUP_POLICY", "group_policy", "open")
     if group_policy not in ("open", "allowlist", "disabled"):
         raise ValueError(f"Invalid DELTACHAT_GROUP_POLICY: {group_policy!r}")
 
     # Lightweight path checks (do not create directories or require the binary).
-    data_dir = os.getenv("DELTACHAT_DATA_DIR") or extra.get("data_dir", "~/.hermes/deltachat-data")
+    data_dir = _cfg(config, "DELTACHAT_DATA_DIR", "data_dir", "~/.hermes/deltachat-data")
     _safe_data_dir(data_dir, create=False)
 
-    avatar_path = os.getenv("DELTACHAT_AVATAR_PATH") or extra.get("avatar_path")
+    avatar_path = _cfg(config, "DELTACHAT_AVATAR_PATH", "avatar_path")
     if avatar_path:
         _validate_avatar_path(avatar_path, strict=False)
 
-    rpc_server = os.getenv("DELTACHAT_RPC_SERVER") or extra.get("rpc_server", "deltachat-rpc-server")
+    rpc_server = _cfg(config, "DELTACHAT_RPC_SERVER", "rpc_server", "deltachat-rpc-server")
     if rpc_server != "deltachat-rpc-server":
         _validate_rpc_server_path(rpc_server, strict=True)
 
-    chatmail_servers = os.getenv("DELTACHAT_CHATMAIL_SERVERS") or extra.get("chatmail_servers")
+    chatmail_servers = _cfg(config, "DELTACHAT_CHATMAIL_SERVERS", "chatmail_servers")
     if chatmail_servers:
         servers = _parse_chatmail_servers(chatmail_servers)
         if not servers:
@@ -946,8 +965,8 @@ def validate_config(config) -> None:
 
 
 def is_connected(config) -> bool:
-    extra = getattr(config, "extra", {}) or {}
-    return bool(os.getenv("DELTACHAT_EMAIL") or extra.get("email"))
+    email = _cfg(config, "DELTACHAT_EMAIL", "email", "auto")
+    return bool(email)
 
 
 def register(ctx) -> None:
