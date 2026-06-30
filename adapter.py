@@ -393,7 +393,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
 
     # --- Hermes lifecycle ---
 
-    async def connect(self) -> bool:
+    async def connect(self, is_reconnect: bool = False) -> bool:
         self._loop = asyncio.get_event_loop()
         self._running = True
         self._setup_event.clear()
@@ -963,6 +963,8 @@ def validate_config(config) -> None:
         servers = _parse_chatmail_servers(chatmail_servers)
         if not servers:
             raise ValueError(f"Invalid DELTACHAT_CHATMAIL_SERVERS: {chatmail_servers!r}")
+
+    return True
 
 
 def is_connected(config) -> bool:
