@@ -455,7 +455,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
 
     # --- Sending ---
 
-    async def send(self, chat_id: str, text: str, **kwargs) -> SendResult:
+    async def send(self, chat_id: str, content: str, **kwargs) -> SendResult:
         with self._lock:
             account = self._account
         if not account:
@@ -464,7 +464,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
         try:
             async def _do_send():
                 chat = await loop.run_in_executor(None, lambda: _get_chat(account, chat_id))
-                for chunk in _split_message(text, self._max_message_len):
+                for chunk in _split_message(content, self._max_message_len):
                     await loop.run_in_executor(None, lambda c=chunk: chat.send_text(c))
                 return SendResult(success=True)
 
