@@ -929,35 +929,36 @@ def _env_enablement():
 
 
 def validate_config(config) -> None:
-    email = _cfg(config, "DELTACHAT_EMAIL", "email", "auto")
-    password = _cfg(config, "DELTACHAT_PASSWORD", "password")
+    extra = getattr(config, "extra", {}) or {}
+    email = os.getenv("DELTACHAT_EMAIL") or extra.get("email", "auto")
+    password = os.getenv("DELTACHAT_PASSWORD") or extra.get("password")
 
     if email and email != "auto" and not _is_valid_email(email):
         raise ValueError(f"DELTACHAT_EMAIL is not a valid email address: {email!r}")
     if email and email != "auto" and not password:
         raise ValueError("DELTACHAT_PASSWORD required when DELTACHAT_EMAIL is set (not 'auto')")
 
-    dm_policy = _cfg(config, "DELTACHAT_DM_POLICY", "dm_policy", "pairing")
+    dm_policy = os.getenv("DELTACHAT_DM_POLICY") or extra.get("dm_policy", "pairing")
     if dm_policy not in ("open", "allowlist", "pairing", "disabled"):
         raise ValueError(f"Invalid DELTACHAT_DM_POLICY: {dm_policy!r}")
 
-    group_policy = _cfg(config, "DELTACHAT_GROUP_POLICY", "group_policy", "open")
+    group_policy = os.getenv("DELTACHAT_GROUP_POLICY") or extra.get("group_policy", "open")
     if group_policy not in ("open", "allowlist", "disabled"):
         raise ValueError(f"Invalid DELTACHAT_GROUP_POLICY: {group_policy!r}")
 
     # Lightweight path checks (do not create directories or require the binary).
-    data_dir = _cfg(config, "DELTACHAT_DATA_DIR", "data_dir", "~/.hermes/deltachat-data")
+    data_dir = os.getenv("DELTACHAT_DATA_DIR") or extra.get("data_dir", "~/.hermes/deltachat-data")
     _safe_data_dir(data_dir, create=False)
 
-    avatar_path = _cfg(config, "DELTACHAT_AVATAR_PATH", "avatar_path")
+    avatar_path = os.getenv("DELTACHAT_AVATAR_PATH") or extra.get("avatar_path")
     if avatar_path:
         _validate_avatar_path(avatar_path, strict=False)
 
-    rpc_server = _cfg(config, "DELTACHAT_RPC_SERVER", "rpc_server", "deltachat-rpc-server")
+    rpc_server = os.getenv("DELTACHAT_RPC_SERVER") or extra.get("rpc_server", "deltachat-rpc-server")
     if rpc_server != "deltachat-rpc-server":
         _validate_rpc_server_path(rpc_server, strict=True)
 
-    chatmail_servers = _cfg(config, "DELTACHAT_CHATMAIL_SERVERS", "chatmail_servers")
+    chatmail_servers = os.getenv("DELTACHAT_CHATMAIL_SERVERS") or extra.get("chatmail_servers")
     if chatmail_servers:
         servers = _parse_chatmail_servers(chatmail_servers)
         if not servers:
@@ -965,8 +966,8 @@ def validate_config(config) -> None:
 
 
 def is_connected(config) -> bool:
-    email = _cfg(config, "DELTACHAT_EMAIL", "email", "auto")
-    return bool(email)
+    extra = getattr(config, "extra", {}) or {}
+    return bool(os.getenv("DELTACHAT_EMAIL") or extra.get("email"))
 
 
 def register(ctx) -> None:
