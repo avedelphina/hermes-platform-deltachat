@@ -64,7 +64,23 @@ optional_env:
     description: "Require @mention in group chats before responding (default: false)"
     prompt: "Require mention in groups? (true/false)"
     password: false
+  - name: DELTACHAT_SEND_REJECTION_REPLIES
+    description: "Send explanation messages when a sender is rejected (default: true)"
+    prompt: "Send rejection replies? (true/false)"
+    password: false
   - name: DELTACHAT_HOME_CHANNEL
     description: "Email address for cron/notification delivery"
     prompt: "Home channel email (optional)"
+    password: false
+  - name: DELTACHAT_MAX_MESSAGE_LENGTH
+    description: "Character limit for automatic message splitting (default: 3600)"
+    prompt: "Max message length"
+    password: false
+  - name: DELTACHAT_RATE_LIMIT_MAX
+    description: "Max inbound messages per sender per window (default: 30)"
+    prompt: "Rate limit max"
+    password: false
+  - name: DELTACHAT_RATE_LIMIT_WINDOW
+    description: "Rate-limit window in seconds (default: 60)"
+    prompt: "Rate limit window"
     password: false
