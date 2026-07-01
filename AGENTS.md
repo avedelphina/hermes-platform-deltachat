@@ -30,7 +30,7 @@ user-supplied email account or create a free "chatmail" account automatically.
 ├── adapter.py           # DeltaChatAdapter class and plugin registration hooks
 ├── plugin.yaml          # Hermes plugin manifest (env vars, labels, description)
 ├── requirements.txt     # Runtime dependencies
-├── __init__.py          # Empty package marker
+├── __init__.py          # Exports register for Hermes plugin loading
 ├── README.md            # Human-readable project overview
 ├── AGENTS.md            # Agent-focused notes for coding assistants
 ├── tests/
@@ -105,9 +105,9 @@ Hermes loads this plugin via `register(ctx)` and creates an adapter instance wit
 
 ### Lifecycle
 
-1. `connect()` validates configuration, registers `SIGTERM`/`SIGINT` handlers
-   for graceful shutdown, and spawns a daemon thread (`deltachat-event`) that
-   runs the Delta Chat event loop.
+1. `connect(is_reconnect=False)` validates configuration, registers
+   `SIGTERM`/`SIGINT` handlers for graceful shutdown, and spawns a daemon thread
+   (`deltachat-event`) that runs the Delta Chat event loop.
 2. Inside the thread, `_run_dc_once()`:
    - Resolves and locks down `DELTACHAT_DATA_DIR` (mode `0o700`).
    - Validates and starts `deltachat-rpc-server` through `Rpc(...)`.
@@ -137,7 +137,9 @@ counts, and counters for diagnostics.
 
 ### Message sending
 
-- Long text is split at paragraph, line, sentence, or word boundaries using
+- `send(content=...)` receives the text payload from Hermes, strips common
+  markdown syntax (`_strip_markdown()`) because Delta Chat renders plain text
+  only, then splits long text at paragraph/line/sentence/word boundaries using
   `_split_message()` with a configurable limit defaulting to
   `DC_MESSAGE_MAX_LEN = 3600` characters.
 - `send_image()` downloads the image with `httpx`, validates the URL scheme,
@@ -152,6 +154,7 @@ counts, and counters for diagnostics.
 ### Inbound message handling
 
 - Duplicate `message_id` values are dropped using a bounded LRU cache.
+- Messages sent by the bot's own account (`_self_addr`) are ignored as echoes.
 - Per-sender rate limiting is applied before policy checks.
 - `DELTACHAT_REQUIRE_MENTION` now uses a whole-word / `@Name` regex instead of
   a simple substring match.
@@ -212,18 +215,23 @@ Configuration is read from environment variables first, then from the Hermes
 - `DELTACHAT_DATA_DIR` must not contain `..`.
 - `DELTACHAT_AVATAR_PATH` must have a supported image extension.
 - A non-default `DELTACHAT_RPC_SERVER` path must point to an executable file.
+- `validate_config()` returns `True` on success.
 
 ---
 
 ## Code organization
 
 - `adapter.py` is the only substantial source file.
-- Helper functions live at module level: `_split_message`, `_is_valid_email`,
-  `_parse_email_list`, `_get_chat`, `_safe_data_dir`, `_validate_rpc_server_path`,
-  `_validate_avatar_path`, `_async_retry`, `check_requirements`.
+- Helper functions live at module level: `_strip_markdown`, `_split_message`,
+  `_is_valid_email`, `_parse_email_list`, `_parse_chatmail_servers`, `_cfg`,
+  `_get_chat`, `_safe_data_dir`, `_validate_rpc_server_path`,
+  `_validate_avatar_path`, `_async_retry`, `check_requirements`,
+  `_resolve_rpc_server_path`.
 - Internal utilities: `_RateLimiter`, `_MessageCache`.
 - `DeltaChatAdapter` subclasses `BasePlatformAdapter` and overrides the Hermes
   lifecycle methods (`connect`, `disconnect`, `send`, `send_image`, etc.).
+  `send()` uses the `content` keyword argument expected by the Hermes base
+  adapter.
 - Inbound message handling is in `DeltaChatAdapter._on_message()`.
 - Policy checks are in `_check_dm()` and `_check_group()`.
 - Mention detection is in `_is_mentioned()`.

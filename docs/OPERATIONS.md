@@ -91,6 +91,17 @@ Call `adapter.get_status()` to obtain a snapshot:
 }
 ```
 
+### Message formatting
+
+Delta Chat renders plain text only. The adapter strips common markdown syntax
+(`**bold**`, `_italic_`, `` `code` ``, `[links](url)`, `~~strike~~`, code
+blocks, and headings) from outbound text before sending.
+
+### Echo filtering
+
+Messages sent by the bot's own Delta Chat account are ignored on the inbound
+path so the agent does not reply to itself.
+
 ### Useful log lines
 
 - `DeltaChat: account ready: <addr>` — account configured successfully.

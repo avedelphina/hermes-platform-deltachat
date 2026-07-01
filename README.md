@@ -23,6 +23,7 @@ provide a fallback list of servers to try during onboarding.
 - **Fine-grained access control** via allowlists and DM/group policies.
 - **Rate limiting** and duplicate-message suppression** for robust inbound handling.
 - **Automatic message splitting** for long replies.
+- **Markdown stripping** before sending, since Delta Chat renders plain text only.
 - **Graceful shutdown** on `SIGTERM`/`SIGINT`.
 
 ---
@@ -58,7 +59,8 @@ provide a fallback list of servers to try during onboarding.
    ```
 
 4. Make the plugin discoverable to Hermes (usually by placing the repository in
-   the gateway's plugin directory or by configuring the plugin path).
+   the gateway's plugin directory or by configuring the plugin path). The
+   package exports `register` from `__init__.py`.
 
 ---
 

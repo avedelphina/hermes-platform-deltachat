@@ -5,7 +5,9 @@ All settings are read from environment variables first, then from the Hermes
 
 Environment variables use the prefix `DELTACHAT_`. The same keys without the
 prefix can be used in `PlatformConfig.extra` (e.g. `email`, `password`,
-`dm_policy`).
+`dm_policy`). Boolean values in `PlatformConfig.extra` (e.g.
+`require_mention: true`) are also accepted and converted to string form
+internally.
 
 ---
 
