@@ -46,6 +46,21 @@ _MIME_EXT_MAP = {
 # ---------------------------------------------------------------------------
 
 
+def _strip_markdown(text: str) -> str:
+    """Delta Chat renders plain text only; strip common markdown syntax."""
+    if not text:
+        return text
+    text = re.sub(r"```(?:\w*\n)?(.*?)```", r"\1", text, flags=re.DOTALL)
+    text = re.sub(r"`([^`]+)`", r"\1", text)
+    text = re.sub(r"^#{1,6}\s+(.*)$", r"\1", text, flags=re.MULTILINE)
+    text = re.sub(r"\[([^\]]+)\]\(([^)]+)\)", r"\1 (\2)", text)
+    text = re.sub(r"(\*\*\*|___)(.+?)\1", r"\2", text)
+    text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text)
+    text = re.sub(r"(?<!\w)(\*|_)(.+?)\1(?!\w)", r"\2", text)
+    text = re.sub(r"~~(.+?)~~", r"\1", text)
+    return text
+
+
 def _split_message(text: str, max_len: int = DC_MESSAGE_MAX_LEN) -> list[str]:
     """Split long text at paragraph/line/sentence/word boundaries."""
     if not text:
@@ -382,6 +397,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
         self._setup_error: Optional[Exception] = None
         self._invite_link: Optional[str] = None
         self._invite_svg: Optional[str] = None
+        self._self_addr: Optional[str] = None
         self._crash_times: list[float] = []
         self._lock = threading.RLock()
         self._stats: dict[str, int] = {}
@@ -464,7 +480,7 @@ class DeltaChatAdapter(BasePlatformAdapter):
         try:
             async def _do_send():
                 chat = await loop.run_in_executor(None, lambda: _get_chat(account, chat_id))
-                for chunk in _split_message(content, self._max_message_len):
+                for chunk in _split_message(_strip_markdown(content), self._max_message_len):
                     await loop.run_in_executor(None, lambda c=chunk: chat.send_text(c))
                 return SendResult(success=True)
 
@@ -689,6 +705,9 @@ class DeltaChatAdapter(BasePlatformAdapter):
                     account.set_avatar(avatar_path)
                 logger.info("DeltaChat: existing account: %s", account.get_config("addr"))
 
+            with self._lock:
+                self._self_addr = (account.get_config("addr") or "").lower()
+
             # Fetch SecureJoin invite QR
             try:
                 link, svg = rpc.get_chat_securejoin_qr_code_svg(account.id, None)
@@ -759,9 +778,6 @@ class DeltaChatAdapter(BasePlatformAdapter):
                 await loop.run_in_executor(None, fn)
             return
 
-        if getattr(snap, "is_bot", False):
-            return
-
         chat_snap = await loop.run_in_executor(None, snap.chat.get_basic_snapshot)
         chat_type = getattr(chat_snap, "chat_type", None)
         if chat_type not in ("Single", "Group"):
@@ -770,6 +786,9 @@ class DeltaChatAdapter(BasePlatformAdapter):
         contact_snap = await loop.run_in_executor(None, snap.sender.get_snapshot)
         sender_email = (contact_snap.address or "").lower()
         sender_name = contact_snap.display_name or sender_email
+
+        if self._self_addr and sender_email == self._self_addr:
+            return  # ignore echoes of our own messages, but let other bots through
         is_verified = getattr(contact_snap, "is_verified", False)
         is_request = getattr(chat_snap, "is_contact_request", False)
 
@@ -995,8 +1014,9 @@ def register(ctx) -> None:
         allow_update_command=True,
         platform_hint=(
             "You are chatting via Delta Chat, an email-based end-to-end encrypted messenger. "
-            "Messages support markdown formatting. "
-            "Long messages are split automatically at ~3600 characters. "
+            "Delta Chat does not render markdown; write plain text (no *bold*, `code`, or [links](url) syntax). "
+            "Long messages are split automatically at ~3600 characters to avoid Delta Chat's own "
+            "truncation/'Read more' cutoff. "
             "Image, audio, and document attachments are supported."
         ),
     )

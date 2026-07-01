@@ -1,7 +1,7 @@
 name: deltachat-platform
 label: Delta Chat
 kind: platform
-version: 1.0.0
+version: 1.1.1
 description: >
   Delta Chat (email-based, end-to-end encrypted) platform adapter for Hermes Agent.
   Requires deltachat-rpc-server on PATH (pip install deltachat-rpc-server).

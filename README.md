@@ -207,6 +207,12 @@ troubleshooting guidance.
 
 ---
 
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for a history of releases.
+
+---
+
 ## License
 
 This project is part of the Hermes Agent ecosystem. See the upstream Hermes
